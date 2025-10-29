@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  # 1. Servicio de Base de Datos (SQL Server)
+  db:
+    image: mcr.microsoft.com/mssql/server:2019-latest
+    container_name: mssql_db
+    environment:
+      SA_PASSWORD: ${DB_PASSWORD}
+      ACCEPT_EULA: ${ACCEPT_EULA}
+      MSSQL_PID: "Developer" 
+    ports:
+      - "1433:1433" 
+    volumes:
+      - mssql_data:/var/opt/mssql 
+    networks:
+      - ufc_net
+
+  # 2. Servicio de Configuración de la DB (Ejecuta init.sql)
+  db-setup:
+    build: ./db-setup
+    container_name: mssql_db_setup
+    depends_on:
+      - db 
+    environment:
+      DB_HOST: ${DB_HOST}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+    networks:
+      - ufc_net
+
+  # 3. Servicio de la API REST
+  api:
+    build: ./api
+    container_name: ufc_api
+    ports:
+      - "8000:8000" 
+    environment:
+      DB_HOST: ${DB_HOST}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME}
+    depends_on:
+      db-setup: 
+        condition: service_completed_successfully
+    networks:
+      - ufc_net
+
+# Red personalizada para que los contenedores se comuniquen por nombre
+networks:
+  ufc_net:
+    driver: bridge
+
+# Volumen para persistir los datos de la base de datos
+volumes:
+  mssql_data:
